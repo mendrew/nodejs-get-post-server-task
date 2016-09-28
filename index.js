@@ -21,6 +21,7 @@ require('http').createServer(function(req, res) {
 
   console.log("Method: ", req.method);
 
+  let fileName;
   switch(req.method) {
     case 'GET':
       if (pathname == '/') {
@@ -32,7 +33,7 @@ require('http').createServer(function(req, res) {
         let fileName = permitFileName(pathname);
         console.log("[Get]: FileName: ", fileName, " pathname: ", pathname);
         if (!fileName) {
-          errorResponse(400, res);
+          errorResponse(STATUS_CODES.UNSUPPORTED_PATH, res);
           return;
         }
 
@@ -40,15 +41,26 @@ require('http').createServer(function(req, res) {
         return;
       }
     case 'POST':
-        let fileName = permitFileName(pathname);
-        console.log("[Post]: FileName: ", fileName, " pathname: ", pathname);
-        if (!fileName) {
-          errorResponse(400, res);
-          return;
-        }
-
-        writeFile(FILES_FOLDER + fileName, req, res);
+      fileName = permitFileName(pathname);
+      console.log("[Post]: FileName: ", fileName, " pathname: ", pathname);
+      if (!fileName) {
+        errorResponse(STATUS_CODES.UNSUPPORTED_PATH, res);
         return;
+      }
+
+      writeFile(FILES_FOLDER + fileName, req, res);
+      return;
+
+    case 'DELETE':
+      fileName = permitFileName(pathname);
+      console.log("[Delete]: FileName: ", fileName, " pathname: ", pathname);
+      if (!fileName) {
+        errorResponse(STATUS_CODES.UNSUPPORTED_PATH, res);
+        return;
+      }
+
+      removeFile(FILES_FOLDER + fileName, res);
+      return;
 
     default:
       res.statusCode = 502;
@@ -68,7 +80,6 @@ function permitFileName(fileName) {
 
   return file;
 }
-
 
 function sendFile(filePath, res) {
   let options = {flags: 'r', autoClose: true};
@@ -140,6 +151,18 @@ function writeFile(filePath, req, res) {
     console.log("req close");
   });
 
+}
+
+function removeFile(fileName, res) {
+  fs.unlink(fileName, (err) => {
+    if (err) {
+      handleFileErorrs(err, res);
+      return;
+    }
+
+    res.statusCode = STATUS_CODES.OK;
+    res.end('Delete');
+  });
 }
 
 function handleFileErorrs(err, res) {
