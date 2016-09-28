@@ -13,14 +13,13 @@ require('http').createServer(function(req, res) {
   case 'GET':
     if (pathname == '/') {
       // отдачу файлов следует переделать "правильно", через потоки, с нормальной обработкой ошибок
-      fs.readFile(__dirname + '/public/index.html', (err, content) => {
-        if (err) throw err;
-        res.setHeader('Content-Type', 'text/html;charset=utf-8');
-        res.end(content);
-      });
+      sendIndexHtml(__dirname + '/public/index.html', res);
+
       return;
     } else {
-      
+      console.log(pathname);
+      res.end();
+
     }
 
   default:
@@ -29,3 +28,25 @@ require('http').createServer(function(req, res) {
   }
 
 }).listen(3000);
+
+function sendIndexHtml(indexPath, res) {
+  let indexStreamOptions = {flags: 'r', autoClose: true};
+  let indexHtmlReadStream = fs.createReadStream(
+    indexPath, indexStreamOptions);
+
+  indexHtmlReadStream.pipe(res);
+
+  indexHtmlReadStream.on('error', (err) => {
+    res.statusCode = 500;
+    res.end('Unknow error happended, wile we read index.html file');
+    console.error(err);
+  });
+
+  res.on('finish', () => {
+    console.log('All write are complete');
+  });
+
+  res.on('close', () => {
+    indexHtmlReadStream.destroy();
+  });
+}
