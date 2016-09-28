@@ -93,7 +93,16 @@ function sendFile(filePath, res) {
   });
 
   res.on('close', () => {
+    console.log("res on SendFile close");
     readFileStream.destroy();
+  });
+
+  readFileStream.on('open', () => {
+    console.log("readFileStream Open");
+  });
+
+  readFileStream.on('close', () => {
+    console.log("readFileStream Close");
   });
 }
 
@@ -109,12 +118,32 @@ function writeFile(filePath, req, res) {
   let writeFileStream = fs.createWriteStream(
     filePath, options);
 
-  let writtenBytes = 0;
 
   req.pipe(writeFileStream);
 
-  req.on('data', function checkDataSize(data) {
+  req.on('data', checkDataSize);
+
+  req.on('open', () => {
+    console.log("req open");
+  });
+
+  req.on('close', () => {
+    console.log("req close");
+
+    req.removeListener('data', checkDataSize);
+
+    writeFileStream.destroy();
+
+    fs.unlink(filePath, (err) => {
+      if (err) console.error(err);
+    });
+
+  });
+
+  let writtenBytes = 0;
+  function checkDataSize(data) {
     writtenBytes += data.length;
+    console.log("Data: ", data.length, " | All: ", writtenBytes);
 
     if (writtenBytes > FILE_SIZE_LIMIT) {
 
@@ -126,7 +155,7 @@ function writeFile(filePath, req, res) {
         if (err) console.error(err);
       });
     }
-  });
+  }
 
   writeFileStream.on('error', (err) => {
     handleFileErorrs(err, res);
@@ -142,13 +171,6 @@ function writeFile(filePath, req, res) {
   });
   writeFileStream.on('close', () => {
     console.log("WriteFile close");
-  });
-
-  req.on('open', () => {
-    console.log("req open");
-  });
-  req.on('close', () => {
-    console.log("req close");
   });
 
 }
