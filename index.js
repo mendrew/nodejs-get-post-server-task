@@ -4,6 +4,7 @@ let url = require('url');
 let fs = require('fs');
 
 let FILES_FOLDER = __dirname + '/files/';
+let FILE_SIZE_LIMIT = 1e6;
 
 let STATUS_CODES = {
   OK: 200,
@@ -12,12 +13,13 @@ let STATUS_CODES = {
   FILE_TOO_BIG: 413,
   FILE_NOT_FOUND: 404,
   UNSUPPORTED_PATH: 400
-
 };
 
 require('http').createServer(function(req, res) {
 
   let pathname = decodeURI(url.parse(req.url).pathname);
+
+  console.log("Method: ", req.method);
 
   switch(req.method) {
     case 'GET':
@@ -28,7 +30,7 @@ require('http').createServer(function(req, res) {
         return;
       } else {
         let fileName = permitFileName(pathname);
-        console.log("FileName: ", fileName, " pathname: ", pathname);
+        console.log("[Get]: FileName: ", fileName, " pathname: ", pathname);
         if (!fileName) {
           errorResponse(400, res);
           return;
@@ -36,9 +38,17 @@ require('http').createServer(function(req, res) {
 
         sendFile(FILES_FOLDER + fileName, res);
         return;
-        // res.end();
-
       }
+    case 'POST':
+        let fileName = permitFileName(pathname);
+        console.log("[Post]: FileName: ", fileName, " pathname: ", pathname);
+        if (!fileName) {
+          errorResponse(400, res);
+          return;
+        }
+
+        writeFile(FILES_FOLDER + fileName, req, res);
+        return;
 
     default:
       res.statusCode = 502;
@@ -56,6 +66,10 @@ function errorResponse(code, res) {
       break;
     case STATUS_CODES.FILE_EXIST:
       errorMessage = "File already exist";
+      break;
+    case STATUS_CODES.FILE_TOO_BIG:
+      errorMessage = "File was too big (gt 1Mb)";
+      break;
   }
 
   res.statusCode = code;
@@ -86,13 +100,65 @@ function sendFile(filePath, res) {
     handleFileErorrs(err, res);
   });
 
-  res.on('finish', () => {
-    console.log('All write are complete');
-  });
-
   res.on('close', () => {
     readFileStream.destroy();
   });
+}
+
+function writeFile(filePath, req, res) {
+
+  var fileSize = req.headers["content-length"];
+  if (fileSize && fileSize > FILE_SIZE_LIMIT) {
+    errorResponse(STATUS_CODES.FILE_TOO_BIG, res);
+    return;
+  }
+
+  let options = {flags: 'wx', autoClose: true};
+  let writeFileStream = fs.createWriteStream(
+    filePath, options);
+
+  let writtenBytes = 0;
+
+  req.pipe(writeFileStream);
+
+  req.on('data', function checkDataSize(data) {
+    writtenBytes += data.length;
+
+    if (writtenBytes > FILE_SIZE_LIMIT) {
+
+      errorResponse(STATUS_CODES.FILE_TOO_BIG, res);
+
+      req.removeListener('data', checkDataSize);
+
+      fs.unlink(filePath, (err) => {
+        if (err) console.error(err);
+      });
+    }
+  });
+
+  writeFileStream.on('error', (err) => {
+    handleFileErorrs(err, res);
+  });
+
+  writeFileStream.on('finish', () => {
+    res.statusCode = STATUS_CODES.OK;
+    res.end();
+  });
+
+  writeFileStream.on('open', () => {
+    console.log("WriteFile open");
+  });
+  writeFileStream.on('close', () => {
+    console.log("WriteFile close");
+  });
+
+  req.on('open', () => {
+    console.log("req open");
+  });
+  req.on('close', () => {
+    console.log("req close");
+  });
+
 }
 
 function handleFileErorrs(err, res) {
@@ -104,6 +170,9 @@ function handleFileErorrs(err, res) {
       statusCode = STATUS_CODES.FILE_NOT_FOUND;
       errorMessage = err.message;
       break;
+    case 'EEXIST':
+      statusCode = STATUS_CODES.FILE_EXIST;
+      errorMessage = err.message;
 
     default:
       statusCode = STATUS_CODES.NOT_SUPPORTED;
