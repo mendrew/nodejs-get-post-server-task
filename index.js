@@ -57,25 +57,6 @@ require('http').createServer(function(req, res) {
 
 }).listen(3000);
 
-function errorResponse(code, res) {
-  var errorMessage;
-
-  switch(code) {
-    case STATUS_CODES.UNSUPPORTED_PATH:
-      errorMessage = "Path to file is not supported";
-      break;
-    case STATUS_CODES.FILE_EXIST:
-      errorMessage = "File already exist";
-      break;
-    case STATUS_CODES.FILE_TOO_BIG:
-      errorMessage = "File was too big (gt 1Mb)";
-      break;
-  }
-
-  res.statusCode = code;
-  res.end(errorMessage);
-}
-
 function permitFileName(fileName) {
   let PERMITTED_FILES_REGEXP = /^\/[^/]+$/;
 
@@ -184,3 +165,23 @@ function handleFileErorrs(err, res) {
   res.statusCode = statusCode;
   res.end(errorMessage);
 }
+
+function errorResponse(code, res) {
+  var errorMessage;
+
+  switch(code) {
+    case STATUS_CODES.UNSUPPORTED_PATH:
+      errorMessage = "Path to file is not supported";
+      break;
+    case STATUS_CODES.FILE_EXIST:
+      errorMessage = "File already exist";
+      break;
+    case STATUS_CODES.FILE_TOO_BIG:
+      errorMessage = "File was too big (gt 1Mb)";
+      break;
+  }
+
+  res.statusCode = code;
+  res.end(errorMessage);
+}
+
