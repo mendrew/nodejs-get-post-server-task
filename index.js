@@ -17,7 +17,8 @@ require('http').createServer(function(req, res) {
 
       return;
     } else {
-      console.log(pathname);
+      let fileName = permitFileName(pathname);
+      // console.log("FileName: ", fileName, " pathname: ", pathname);
       res.end();
 
     }
@@ -28,6 +29,18 @@ require('http').createServer(function(req, res) {
   }
 
 }).listen(3000);
+
+function permitFileName(fileName) {
+  let PERMITTED_FILES_REGEXP = /^\/[^/]+$/;
+
+  let fileNameMatch = fileName.match(PERMITTED_FILES_REGEXP);
+  if (!fileNameMatch) return;
+
+  let file = fileNameMatch[0].slice(1);
+  if (file === 'favicon.ico') return;
+
+  return file;
+}
 
 function sendIndexHtml(indexPath, res) {
   let indexStreamOptions = {flags: 'r', autoClose: true};
